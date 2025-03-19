@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-        table { width: 80%; margin: auto; border-collapse: collapse; margin-top: 20px; }
+        table { width: 90%; margin: auto; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
     </style>
@@ -20,6 +20,9 @@
     <table id="employeeTable">
         <thead>
             <tr>
+                <th>Date</th>
+                <th>Employee ID</th>
+                <th>Employee Name</th>
                 <th>Area</th>
                 <th>Employee Count</th>
                 <th>Vehicle Type</th>
@@ -30,81 +33,4 @@
 
     <script>
         document.getElementById("fileInput").addEventListener("change", function(event) {
-            let file = event.target.files[0];
-            if (!file) return;
-
-            let reader = new FileReader();
-            reader.readAsBinaryString(file);
-
-            reader.onload = function(e) {
-                let data = e.target.result;
-                let workbook = XLSX.read(data, { type: "binary" });
-                let sheetName = workbook.SheetNames[0];
-                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
-
-                processEmployeeData(sheet);
-            };
-        });
-
-        function processEmployeeData(data) {
-            let areaCounts = {};
-            let areaColumnIndex = null;
-
-            // Find the column index for "Area"
-            let headers = data[1];  // Header row is at index 1
-            for (let i = 0; i < headers.length; i++) {
-                if (headers[i] && headers[i].toLowerCase().includes("area")) {
-                    areaColumnIndex = i;
-                    break;
-                }
-            }
-
-            if (areaColumnIndex === null) {
-                alert("Error: 'Area' column not found in the Excel file.");
-                return;
-            }
-
-            // Read area-wise employee data (starting from row 2)
-            for (let i = 2; i < data.length; i++) {
-                let row = data[i];
-                let area = row[areaColumnIndex];
-
-                if (!area) continue;  // Skip empty rows
-
-                if (!areaCounts[area]) {
-                    areaCounts[area] = 0;
-                }
-                areaCounts[area]++;
-            }
-
-            // Create result array
-            let result = Object.entries(areaCounts).map(([area, count]) => ({
-                area,
-                count,
-                vehicle: suggestVehicle(count)
-            }));
-
-            displayTable(result);
-        }
-
-        function suggestVehicle(count) {
-            if (count <= 2) return "Bike";
-            if (count <= 5) return "Car";
-            if (count <= 15) return "Van";
-            return "Bus";
-        }
-
-        function displayTable(data) {
-            let tbody = document.querySelector("#employeeTable tbody");
-            tbody.innerHTML = ""; // Clear previous data
-
-            data.forEach(row => {
-                let tr = document.createElement("tr");
-                tr.innerHTML = `<td>${row.area}</td><td>${row.count}</td><td>${row.vehicle}</td>`;
-                tbody.appendChild(tr);
-            });
-        }
-    </script>
-
-</body>
-</html>
+ 
