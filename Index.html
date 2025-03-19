@@ -3,20 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Area Report</title>
+    <title>Employee List with Vehicle Suggestion</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-        table { width: 90%; margin: auto; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        table, th, td { border: 1px solid black; border-collapse: collapse; padding: 5px; }
     </style>
 </head>
 <body>
-
-    <h1>Upload Employee Excel File</h1>
-    <input type="file" id="fileInput" accept=".xlsx">
-    <br><br>
+    <h2>Upload Employee Excel File</h2>
+    <input type="file" id="upload" accept=".xlsx, .xls">
+    <h2>Employee List</h2>
     <table id="employeeTable">
         <thead>
             <tr>
@@ -24,109 +20,83 @@
                 <th>Employee ID</th>
                 <th>Employee Name</th>
                 <th>Area</th>
-                <th>Employee Count</th>
-                <th>Vehicle Type</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Area-wise Employee Count & Vehicle Suggestion</h2>
+    <table id="areaTable">
+        <thead>
+            <tr>
+                <th>Area</th>
+                <th>No. of Employees</th>
+                <th>Suggested Vehicle</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
     <script>
-        document.getElementById("fileInput").addEventListener("change", function(event) {
+        document.getElementById('upload').addEventListener('change', function(event) {
             let file = event.target.files[0];
-            if (!file) return;
-
             let reader = new FileReader();
-            reader.readAsBinaryString(file);
 
             reader.onload = function(e) {
-                let data = e.target.result;
-                let workbook = XLSX.read(data, { type: "binary" });
-                let sheetName = workbook.SheetNames[0]; // Read the first sheet
-                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+                let data = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(data, { type: 'array' });
+                let sheetName = workbook.SheetNames[0];
+                let sheet = workbook.Sheets[sheetName];
 
-                processEmployeeData(sheet);
+                let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                // Extract headers and data
+                let headers = jsonData[0];
+                let dataRows = jsonData.slice(1);
+
+                let tableBody = document.querySelector("#employeeTable tbody");
+                tableBody.innerHTML = ""; // Clear previous data
+
+                let areaCount = {};
+
+                dataRows.forEach(row => {
+                    let [date, empId, empName, area] = row;
+
+                    // Display employee list
+                    let tr = document.createElement("tr");
+                    tr.innerHTML = `<td>${date || ''}</td><td>${empId || ''}</td><td>${empName || ''}</td><td>${area || ''}</td>`;
+                    tableBody.appendChild(tr);
+
+                    // Count employees per area
+                    if (area) {
+                        areaCount[area] = (areaCount[area] || 0) + 1;
+                    }
+                });
+
+                // Display area-wise employee count & vehicle suggestions
+                let areaTableBody = document.querySelector("#areaTable tbody");
+                areaTableBody.innerHTML = "";
+
+                Object.keys(areaCount).forEach(area => {
+                    let count = areaCount[area];
+                    let vehicle = suggestVehicle(count);
+
+                    let tr = document.createElement("tr");
+                    tr.innerHTML = `<td>${area}</td><td>${count}</td><td>${vehicle}</td>`;
+                    areaTableBody.appendChild(tr);
+                });
             };
+
+            reader.readAsArrayBuffer(file);
         });
 
-        function processEmployeeData(data) {
-            let employees = [];
-            let areaCounts = {};
-            let headers = data[1]; // Header row is at index 1
-            let columnIndexes = {
-                date: null,
-                empId: null,
-                empName: null,
-                area: null
-            };
-
-            // Find column indexes dynamically
-            headers.forEach((header, index) => {
-                if (header && header.toLowerCase().includes("date")) columnIndexes.date = index;
-                if (header && header.toLowerCase().includes("employee id")) columnIndexes.empId = index;
-                if (header && header.toLowerCase().includes("employee name")) columnIndexes.empName = index;
-                if (header && header.toLowerCase().includes("area")) columnIndexes.area = index;
-            });
-
-            if (Object.values(columnIndexes).includes(null)) {
-                alert("Error: Could not find required columns in the Excel file.");
-                return;
-            }
-
-            // Read employee data from row 2 onward
-            for (let i = 2; i < data.length; i++) {
-                let row = data[i];
-                let employee = {
-                    date: row[columnIndexes.date] || "-",
-                    empId: row[columnIndexes.empId] || "-",
-                    empName: row[columnIndexes.empName] || "-",
-                    area: row[columnIndexes.area] || "-"
-                };
-
-                employees.push(employee);
-
-                // Count employees per area
-                if (!areaCounts[employee.area]) {
-                    areaCounts[employee.area] = 0;
-                }
-                areaCounts[employee.area]++;
-            }
-
-            // Assign vehicle type based on count
-            let result = employees.map(emp => ({
-                ...emp,
-                count: areaCounts[emp.area],
-                vehicle: suggestVehicle(areaCounts[emp.area])
-            }));
-
-            displayTable(result);
-        }
-
+        // Function to suggest vehicle type
         function suggestVehicle(count) {
-            if (count <= 2) return "Bike";
-            if (count <= 5) return "Car";
-            if (count <= 15) return "Van";
-            return "Bus";
-        }
-
-        function displayTable(data) {
-            let tbody = document.querySelector("#employeeTable tbody");
-            tbody.innerHTML = ""; // Clear previous data
-
-            data.forEach(row => {
-                let tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${row.date}</td>
-                    <td>${row.empId}</td>
-                    <td>${row.empName}</td>
-                    <td>${row.area}</td>
-                    <td>${row.count}</td>
-                    <td>${row.vehicle}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+            if (count <= 3) return "Bike";
+            else if (count <= 7) return "Car";
+            else if (count <= 15) return "Van";
+            else return "Bus";
         }
     </script>
-
 </body>
 </html>
