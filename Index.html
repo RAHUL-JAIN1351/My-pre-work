@@ -33,4 +33,100 @@
 
     <script>
         document.getElementById("fileInput").addEventListener("change", function(event) {
- 
+            let file = event.target.files[0];
+            if (!file) return;
+
+            let reader = new FileReader();
+            reader.readAsBinaryString(file);
+
+            reader.onload = function(e) {
+                let data = e.target.result;
+                let workbook = XLSX.read(data, { type: "binary" });
+                let sheetName = workbook.SheetNames[0]; // Read the first sheet
+                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+
+                processEmployeeData(sheet);
+            };
+        });
+
+        function processEmployeeData(data) {
+            let employees = [];
+            let areaCounts = {};
+            let headers = data[1]; // Header row is at index 1
+            let columnIndexes = {
+                date: null,
+                empId: null,
+                empName: null,
+                area: null
+            };
+
+            // Find column indexes dynamically
+            headers.forEach((header, index) => {
+                if (header && header.toLowerCase().includes("date")) columnIndexes.date = index;
+                if (header && header.toLowerCase().includes("employee id")) columnIndexes.empId = index;
+                if (header && header.toLowerCase().includes("employee name")) columnIndexes.empName = index;
+                if (header && header.toLowerCase().includes("area")) columnIndexes.area = index;
+            });
+
+            if (Object.values(columnIndexes).includes(null)) {
+                alert("Error: Could not find required columns in the Excel file.");
+                return;
+            }
+
+            // Read employee data from row 2 onward
+            for (let i = 2; i < data.length; i++) {
+                let row = data[i];
+                let employee = {
+                    date: row[columnIndexes.date] || "-",
+                    empId: row[columnIndexes.empId] || "-",
+                    empName: row[columnIndexes.empName] || "-",
+                    area: row[columnIndexes.area] || "-"
+                };
+
+                employees.push(employee);
+
+                // Count employees per area
+                if (!areaCounts[employee.area]) {
+                    areaCounts[employee.area] = 0;
+                }
+                areaCounts[employee.area]++;
+            }
+
+            // Assign vehicle type based on count
+            let result = employees.map(emp => ({
+                ...emp,
+                count: areaCounts[emp.area],
+                vehicle: suggestVehicle(areaCounts[emp.area])
+            }));
+
+            displayTable(result);
+        }
+
+        function suggestVehicle(count) {
+            if (count <= 2) return "Bike";
+            if (count <= 5) return "Car";
+            if (count <= 15) return "Van";
+            return "Bus";
+        }
+
+        function displayTable(data) {
+            let tbody = document.querySelector("#employeeTable tbody");
+            tbody.innerHTML = ""; // Clear previous data
+
+            data.forEach(row => {
+                let tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${row.date}</td>
+                    <td>${row.empId}</td>
+                    <td>${row.empName}</td>
+                    <td>${row.area}</td>
+                    <td>${row.count}</td>
+                    <td>${row.vehicle}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+
+</body>
+</html>
