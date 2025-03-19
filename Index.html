@@ -40,7 +40,7 @@
                 let data = e.target.result;
                 let workbook = XLSX.read(data, { type: "binary" });
                 let sheetName = workbook.SheetNames[0];
-                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                let sheet = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
 
                 processEmployeeData(sheet);
             };
@@ -48,24 +48,41 @@
 
         function processEmployeeData(data) {
             let areaCounts = {};
+            let areaColumnIndex = null;
 
-            // Count employees per area
-            data.forEach(row => {
-                let area = row["Area"];
+            // Find the column index for "Area"
+            let headers = data[1];  // Header row is at index 1
+            for (let i = 0; i < headers.length; i++) {
+                if (headers[i] && headers[i].toLowerCase().includes("area")) {
+                    areaColumnIndex = i;
+                    break;
+                }
+            }
+
+            if (areaColumnIndex === null) {
+                alert("Error: 'Area' column not found in the Excel file.");
+                return;
+            }
+
+            // Read area-wise employee data (starting from row 2)
+            for (let i = 2; i < data.length; i++) {
+                let row = data[i];
+                let area = row[areaColumnIndex];
+
+                if (!area) continue;  // Skip empty rows
+
                 if (!areaCounts[area]) {
                     areaCounts[area] = 0;
                 }
                 areaCounts[area]++;
-            });
+            }
 
-            // Suggest vehicle based on count
-            let result = Object.entries(areaCounts).map(([area, count]) => {
-                return {
-                    area,
-                    count,
-                    vehicle: suggestVehicle(count)
-                };
-            });
+            // Create result array
+            let result = Object.entries(areaCounts).map(([area, count]) => ({
+                area,
+                count,
+                vehicle: suggestVehicle(count)
+            }));
 
             displayTable(result);
         }
