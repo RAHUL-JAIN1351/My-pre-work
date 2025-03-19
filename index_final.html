@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee List with Vehicle Suggestion</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        input {
+            margin: 10px;
+            padding: 8px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 90%;
+            margin: 20px auto;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.95);
+            animation: fadeInTable 0.5s forwards 0.3s;
+        }
+
+        @keyframes fadeInTable {
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #007bff;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        tr {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInRow 0.5s forwards;
+        }
+
+        @keyframes fadeInRow {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        tr:hover {
+            background: #eaf3ff;
+            transition: background 0.3s;
+        }
+
+        .total-row {
+            font-weight: bold;
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload Employee Excel File</h2>
+    <input type="file" id="upload" accept=".xlsx, .xls">
+
+    <h2>Area-wise Employee List, Count & Vehicle Suggestion</h2>
+    <table id="areaTable">
+        <thead>
+            <tr>
+                <th>Area</th>
+                <th>No. of Employees</th>
+                <th>Employee Name</th>
+                <th>Suggested Vehicle</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td>Total Employees</td>
+                <td id="totalEmployees">0</td>
+                <td colspan="2"></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <script>
+        document.getElementById('upload').addEventListener('change', function(event) {
+            let file = event.target.files[0];
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+                let data = new Uint8Array(e.target.result);
+                let workbook = XLSX.read(data, { type: 'array' });
+                let sheetName = workbook.SheetNames[0];
+                let sheet = workbook.Sheets[sheetName];
+
+                let jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+                let dataRows = jsonData.slice(1);
+
+                let areaData = {};
+                let totalEmployees = 0;
+
+                dataRows.forEach(row => {
+                    let [date, empId, empName, area] = row;
+
+                    if (area && empName) {
+                        if (!areaData[area]) {
+                            areaData[area] = { count: 0, employees: [] };
+                        }
+                        areaData[area].count++;
+                        areaData[area].employees.push(empName);
+                        totalEmployees++;
+                    }
+                });
+
+                let areaTableBody = document.querySelector("#areaTable tbody");
+                areaTableBody.innerHTML = "";
+
+                Object.keys(areaData).forEach(area => {
+                    let count = areaData[area].count;
+                    let vehicle = suggestVehicle(count);
+                    let employees = areaData[area].employees;
+
+                    employees.forEach((empName, index) => {
+                        let tr = document.createElement("tr");
+                        tr.style.animationDelay = `${index * 0.1}s`;
+
+                        if (index === 0) {
+                            tr.innerHTML = `
+                                <td rowspan="${employees.length}">${area}</td>
+                                <td rowspan="${employees.length}">${count}</td>
+                                <td>${empName}</td>
+                                <td rowspan="${employees.length}">${vehicle}</td>
+                            `;
+                        } else {
+                            tr.innerHTML = `<td>${empName}</td>`;
+                        }
+
+                        areaTableBody.appendChild(tr);
+                    });
+                });
+
+                document.getElementById("totalEmployees").innerText = totalEmployees;
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        function suggestVehicle(count) {
+            if (count <= 3) return "🏍️ Bike";
+            else if (count <= 7) return "🚗 Car";
+            else if (count <= 15) return "🚐 Van";
+            else return "🚌 Bus";
+        }
+    </script>
+</body>
+</html>
